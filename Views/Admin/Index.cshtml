@@ -1,0 +1,37 @@
+﻿@using Contrib.Cache.ViewModels
+@model EditViewModel
+           
+@{
+    Layout.Title = T("Cache Settings");
+}
+@using (Html.BeginFormAntiForgeryPost()) {
+    @Html.ValidationSummary()
+
+    <fieldset>
+        <label>@T("Default Cache Duration")</label>
+        @Html.TextBoxFor(m => m.DefaultCacheDuration, new { @class = "text-small"})
+        <span class="hint">@T("Number of seconds the pages should be kept in cache by default.")</span>
+    </fieldset>
+    
+    <button class="primaryAction" type="submit">@T("Save")</button>
+    
+    foreach (var feature in Model.FeatureRouteConfigurations.Keys) {
+        <h2>@T(feature) @T("Feature")</h2>
+        <table class="items">
+            <thead>
+                <tr>
+                    <th scope="col">@T("Route")</th>
+                    <th scope="col">@T("Priority")</th>
+                    <th scope="col">@T("Settings")</th>
+                </tr>
+            </thead>
+            @foreach (var routeConfiguration in Model.FeatureRouteConfigurations[feature]) {
+            <tr>
+                <td>@(((Route)routeConfiguration.RouteDescriptor.Route).Url)</td>
+                <td style="width:60px;">@routeConfiguration.RouteDescriptor.Priority</td>    
+                <td style="width:300px;">@routeConfiguration.CacheSettings.ToString()</td>    
+            </tr>
+            }
+        </table>
+    }
+}
