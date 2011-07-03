@@ -2,7 +2,7 @@
 AntiForgery: enabled
 Author: Sébastien Ros
 Website: http://orchardproject.net
-Version: 0.2.1
+Version: 0.2.2
 OrchardVersion: 1.0
 Description: Adds Caching functionality.
 Features:

@@ -7,6 +7,7 @@ using Contrib.Cache.Models;
 using Orchard;
 using Orchard.Caching;
 using Orchard.ContentManagement;
+using Orchard.Environment.Configuration;
 using Orchard.Mvc.Filters;
 using Orchard.Services;
 using Orchard.Themes;
@@ -20,6 +21,7 @@ namespace Contrib.Cache.Filters {
         private readonly IThemeManager _themeManager;
         private readonly IClock _clock;
         private readonly ISignals _signals;
+        private readonly ShellSettings _shellSettings;
 
         private const string AntiforgeryBeacon = "[[OutputCacheFilterAntiForgeryToken]]";
         private const string AntiforgeryTag = "<input name=\"__RequestVerificationToken\" type=\"hidden\" value=\"";
@@ -29,12 +31,14 @@ namespace Contrib.Cache.Filters {
             IWorkContextAccessor workContextAccessor,
             IThemeManager themeManager,
             IClock clock,
-            ISignals signals) {
+            ISignals signals,
+            ShellSettings shellSettings) {
             _cacheManager = cacheManager;
             _workContextAccessor = workContextAccessor;
             _themeManager = themeManager;
             _clock = clock;
             _signals = signals;
+            _shellSettings = shellSettings;
             }
 
         private int _cacheDuration;
@@ -145,7 +149,8 @@ namespace Contrib.Cache.Filters {
                 ValidUntilUtc = now.AddSeconds(_cacheDuration),
                 Url = filterContext.HttpContext.Request.Url.AbsolutePath,
                 QueryString = filterContext.HttpContext.Request.Url.Query,
-                Output = output
+                Output = output,
+                CacheKey = _cacheKey
             };
 
             // add data to cache
@@ -170,8 +175,9 @@ namespace Contrib.Cache.Filters {
             
             var keyBuilder = new StringBuilder();
 
-            // todo: add tenant if not using the url
-            keyBuilder.Append("url=").Append(filterContext.HttpContext.Request.Url.PathAndQuery).Append(";");
+            keyBuilder.Append("tenant=").Append(_shellSettings.Name).Append(";");
+
+            keyBuilder.Append("url=").Append(filterContext.HttpContext.Request.RawUrl.ToLowerInvariant()).Append(";");
 
             foreach (var pair in filterContext.ActionParameters) {
                 keyBuilder.AppendFormat("{0}={1};", pair.Key, pair.Value);
@@ -184,16 +190,6 @@ namespace Contrib.Cache.Filters {
             keyBuilder.Append("theme=").Append(_themeManager.GetRequestTheme(filterContext.RequestContext).Id).Append(";");
 
             return keyBuilder.ToString();
-        }
-
-        [Serializable]
-        public class CacheItem {
-            public DateTime ValidUntilUtc { get; set; }
-            public DateTime CachedOnUtc { get; set; }
-            public string Output { get; set; }
-            public string ContentType { get; set; }
-            public string QueryString { get; set; }
-            public string Url { get; set; }
         }
     }
 

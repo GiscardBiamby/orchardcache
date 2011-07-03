@@ -35,7 +35,7 @@ namespace Contrib.Cache.Handlers {
                     Action<RoutePart> findAndEvict = (p) => {
                         // search for CacheItem object in the cache
                         foreach (DictionaryEntry cacheEntry in workContext.HttpContext.Cache) {
-                            var cacheItem = cacheEntry.Value as OutputCacheFilter.CacheItem;
+                            var cacheItem = cacheEntry.Value as CacheItem;
                             if (cacheItem == null) {
                                 continue;
                             }
