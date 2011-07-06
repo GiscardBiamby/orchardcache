@@ -10,7 +10,8 @@ namespace Contrib.Cache.Services {
     public class CacheService : ICacheService {
         private readonly IWorkContextAccessor _workContextAccessor;
 
-        public CacheService(IWorkContextAccessor workContextAccessor) {
+        public CacheService(
+            IWorkContextAccessor workContextAccessor) {
             _workContextAccessor = workContextAccessor;
         }
 
@@ -23,6 +24,10 @@ namespace Contrib.Cache.Services {
                     yield return cacheItem;
                 }
             }
+        }
+
+        public void Evict(string cacheKey, HttpContextBase httpContext) {
+            httpContext.Cache.Remove(cacheKey);
         }
     }
 }

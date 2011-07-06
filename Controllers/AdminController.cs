@@ -108,7 +108,7 @@ namespace Contrib.Cache.Controllers {
             if (!Services.Authorizer.Authorize(StandardPermissions.SiteOwner, T("Not allowed to manage cache")))
                 return new HttpUnauthorizedResult();
 
-            HttpContext.Cache.Remove(cacheKey);
+            _cacheService.Evict(cacheKey, HttpContext);
 
             return RedirectToAction("Index");
         }
