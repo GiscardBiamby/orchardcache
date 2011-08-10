@@ -80,18 +80,23 @@
   <ItemGroup>
     <Compile Include="AdminMenu.cs" />
     <Compile Include="Controllers\AdminController.cs" />
+    <Compile Include="Controllers\StatisticsController.cs" />
     <Compile Include="Filters\OutputCacheFilter.cs" />
     <Compile Include="Handlers\CacheSettingsPartHandler.cs" />
     <Compile Include="Migrations.cs" />
     <Compile Include="Models\CacheItem.cs" />
     <Compile Include="Models\CacheSettingsPart.cs" />
     <Compile Include="Models\CacheSettingsPartRecord.cs" />
+    <Compile Include="Models\CacheParameterRecord.cs" />
     <Compile Include="Services\CacheService.cs" />
     <Compile Include="Services\ICacheService.cs" />
+    <Compile Include="ViewModels\StatisticsViewModel.cs" />
     <Compile Include="ViewModels\IndexViewModel.cs" />
     <Compile Include="ViewModels\RouteConfiguration.cs" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Content Include="Views\Statistics\Index.cshtml" />
+  </ItemGroup>
   <ItemGroup>
     <Content Include="Views\Admin\Index.cshtml" />
   </ItemGroup>

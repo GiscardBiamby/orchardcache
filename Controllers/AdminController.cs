@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Web.Mvc;
 using System.Web.Routing;
-using System.Web.UI;
 using Autofac.Features.Metadata;
 using Contrib.Cache.Models;
 using Contrib.Cache.Services;
@@ -43,6 +41,8 @@ namespace Contrib.Cache.Controllers {
                 return new HttpUnauthorizedResult();
 
             var routeConfigurations = new List<RouteConfiguration>();
+            var settings = Services.WorkContext.CurrentSite.As<CacheSettingsPart>();
+
 
             foreach (var routeProvider in _routeProviders) {
                 // right now, ignore generic routes
@@ -60,9 +60,15 @@ namespace Contrib.Cache.Controllers {
                     // ignore admin routes
                     if (route.Url.StartsWith("Admin/") || route.Url == "Admin") continue;
 
+                    var cacheParameterKey = _cacheService.GetRouteDescriptorKey(route.Url, route.DataTokens);
+                    var cacheParameter = _cacheService.GetCacheParameterByKey(cacheParameterKey);
+                    var duration = cacheParameter == null ? default(int?) : cacheParameter.Duration;
+
                     routeConfigurations.Add(new RouteConfiguration {
-                        RouteDescriptor = routeDescriptor,
-                        CacheSettings = new OutputCacheParameters(),
+                        RouteKey = cacheParameterKey,
+                        Url = route.Url,
+                        Priority = routeDescriptor.Priority,
+                        Duration = duration,
                         FeatureName =
                             String.IsNullOrWhiteSpace(feature.Descriptor.Name)
                                 ? feature.Descriptor.Id
@@ -71,14 +77,11 @@ namespace Contrib.Cache.Controllers {
                 }
             }
 
-            var settings = Services.WorkContext.CurrentSite.As<CacheSettingsPart>();
-
             var model = new IndexViewModel {
-                CacheItems = _cacheService.GetCacheItems().ToList().OrderByDescending(x => x.CachedOnUtc),
                 DefaultCacheDuration = settings.DefaultCacheDuration,
-                FeatureRouteConfigurations =routeConfigurations
-                        .GroupBy(x => x.FeatureName)
-                        .ToDictionary(x => x.Key, x => x.Select(y => y))
+                IgnoredUrls = settings.IgnoredUrls,
+                DebugMode = settings.DebugMode,
+                RouteConfigurations = routeConfigurations
             };
 
             return View(model);
@@ -89,11 +92,20 @@ namespace Contrib.Cache.Controllers {
             if (!Services.Authorizer.Authorize(StandardPermissions.SiteOwner, T("Not allowed to manage cache")))
                 return new HttpUnauthorizedResult();
 
-            var model = new IndexViewModel();
+            var model = new IndexViewModel {
+                RouteConfigurations = new List<RouteConfiguration>()
+            };
+
             if(TryUpdateModel(model)) {
                 var settings = Services.WorkContext.CurrentSite.As<CacheSettingsPart>();
                 settings.DefaultCacheDuration = model.DefaultCacheDuration;
-                _signals.Trigger("CacheSettingsPart");
+                settings.IgnoredUrls = model.IgnoredUrls;
+                settings.DebugMode = model.DebugMode;
+
+                // invalidates the settings cache
+                _signals.Trigger(CacheSettingsPart.CacheKey);
+
+                _cacheService.SaveCacheConfigurations(model.RouteConfigurations);
 
                 Services.Notifier.Information(T("Cache Settings saved successfully."));
             }
@@ -104,13 +116,5 @@ namespace Contrib.Cache.Controllers {
             return RedirectToAction("Index");
         }
 
-        public ActionResult Evict(string cacheKey) {
-            if (!Services.Authorizer.Authorize(StandardPermissions.SiteOwner, T("Not allowed to manage cache")))
-                return new HttpUnauthorizedResult();
-
-            _cacheService.Evict(cacheKey, HttpContext);
-
-            return RedirectToAction("Index");
-        }
     }
 }

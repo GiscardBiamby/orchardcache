@@ -1,10 +1,27 @@
 using Orchard.ContentManagement;
 
-namespace Contrib.Cache.Models {
-    public class CacheSettingsPart : ContentPart<CacheSettingsPartRecord> {
-        public int DefaultCacheDuration {
+namespace Contrib.Cache.Models
+{
+    public class CacheSettingsPart : ContentPart<CacheSettingsPartRecord>
+    {
+        public const string CacheKey = "CacheSettingsPart";
+
+        public int DefaultCacheDuration
+        {
             get { return Record.DefaultCacheDuration; }
             set { Record.DefaultCacheDuration = value; }
+        }
+
+        public string IgnoredUrls
+        {
+            get { return Record.IgnoredUrls; }
+            set { Record.IgnoredUrls = value; }
+        }
+
+        public bool DebugMode
+        {
+            get { return Record.DebugMode; }
+            set { Record.DebugMode = value; }
         }
     }
 }

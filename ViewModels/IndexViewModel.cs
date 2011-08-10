@@ -1,12 +1,12 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using Contrib.Cache.Models;
 
 namespace Contrib.Cache.ViewModels {
     public class IndexViewModel {
-        public IEnumerable<CacheItem> CacheItems { get; set; } 
-        public Dictionary<string, IEnumerable<RouteConfiguration>> FeatureRouteConfigurations { get; set; }
+        public List<RouteConfiguration> RouteConfigurations { get; set; }
         [Range(0, int.MaxValue), Required]
         public int DefaultCacheDuration { get; set; }
+        public string IgnoredUrls{ get; set; }
+        public bool DebugMode { get; set; }
     }
 }

@@ -1,10 +1,12 @@
-﻿using System.Web.UI;
+﻿using System.Web.Routing;
 using Orchard.Mvc.Routes;
 
 namespace Contrib.Cache.ViewModels {
     public class RouteConfiguration {
-        public RouteDescriptor RouteDescriptor { get; set; }
-        public OutputCacheParameters CacheSettings { get; set; }
+        public string RouteKey { get; set; }
+        public string Url { get; set; }
+        public int Priority { get; set; }
+        public int? Duration { get; set; }
         public string FeatureName { get; set; }
     }
 }

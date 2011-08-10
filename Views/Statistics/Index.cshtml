@@ -1,0 +1,27 @@
+﻿@using Contrib.Cache.ViewModels
+@model StatisticsViewModel
+           
+@{
+    Layout.Title = T("Cache Statistics");
+}
+
+<h2>@T("Cached pages")</h2>
+<table class="items">
+    <thead>
+        <tr>
+            <th scope="col">@T("Url")</th>
+            <th scope="col">@T("Cached On")</th>
+            <th scope="col">@T("Cached Until")</th>
+            <th scope="col">&nbsp;</th>
+        </tr>
+    </thead>
+    @foreach (var cacheItem in Model.CacheItems)
+    {
+    <tr>
+        <td>@cacheItem.Url</td>
+        <td>@Display.DateTimeRelative(dateTimeUtc: cacheItem.CachedOnUtc)</td>
+        <td>@cacheItem.ValidUntilUtc.ToLocalTime()</td>
+        <td>@Html.ActionLink(T("Evict").Text, "Evict", new { Area = "Contrib.Cache", Controller = "Admin", cacheKey = cacheItem.CacheKey })</td>
+    </tr>
+    }
+</table>

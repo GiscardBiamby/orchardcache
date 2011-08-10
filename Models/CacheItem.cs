@@ -1,8 +1,10 @@
 ﻿using System;
 
-namespace Contrib.Cache.Models {
+namespace Contrib.Cache.Models
+{
     [Serializable]
-    public class CacheItem {
+    public class CacheItem
+    {
         public DateTime ValidUntilUtc { get; set; }
         public DateTime CachedOnUtc { get; set; }
         public string Output { get; set; }
@@ -10,5 +12,6 @@ namespace Contrib.Cache.Models {
         public string QueryString { get; set; }
         public string Url { get; set; }
         public string CacheKey { get; set; }
+        public string RouteDescriptorKey { get; set; }
     }
 }

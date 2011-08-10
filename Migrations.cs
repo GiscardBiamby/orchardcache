@@ -8,9 +8,40 @@ namespace Contrib.Cache {
                 table => table
                     .ContentPartRecord()
                     .Column<int>("DefaultCacheDuration")
+                    .Column<string>("IgnoredUrls", c => c.Unlimited())
+                    .Column<bool>("DebugMode", c => c.WithDefault(false))
                 );
 
-            return 1;
+            SchemaBuilder.CreateTable("CacheParameterRecord",
+                    table => table
+                        .Column<int>("Id", c => c.PrimaryKey().Identity())
+                        .Column<int>("Duration")
+                        .Column<string>("RouteKey", c => c.WithLength(255))
+                    );
+
+            return 2;
+        }
+
+        public int UpdateFrom1()
+        {
+            SchemaBuilder.CreateTable("CacheParameterRecord",
+                table => table
+                    .Column<int>("Id", c => c.PrimaryKey().Identity())
+                    .Column<int>("Duration")
+                    .Column<string>("RouteKey", c => c.WithLength(255))
+                );
+
+            SchemaBuilder.AlterTable("CacheSettingsPartRecord",
+                table => table
+                    .AddColumn<string>("IgnoredUrls", c => c.Unlimited())
+                );
+
+            SchemaBuilder.AlterTable("CacheSettingsPartRecord",
+                table => table
+                    .AddColumn<string>("DebugMode", c => c.WithDefault(false))
+                );
+            
+            return 2;
         }
     }
 }
