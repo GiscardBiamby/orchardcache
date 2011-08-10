@@ -21,7 +21,7 @@
         <td>@cacheItem.Url</td>
         <td>@Display.DateTimeRelative(dateTimeUtc: cacheItem.CachedOnUtc)</td>
         <td>@cacheItem.ValidUntilUtc.ToLocalTime()</td>
-        <td>@Html.ActionLink(T("Evict").Text, "Evict", new { Area = "Contrib.Cache", Controller = "Admin", cacheKey = cacheItem.CacheKey })</td>
+        <td>@Html.ActionLink(T("Evict").Text, "Evict", new { Area = "Contrib.Cache", Controller = "Statistics", cacheKey = cacheItem.CacheKey })</td>
     </tr>
     }
 </table>
