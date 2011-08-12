@@ -38,7 +38,7 @@ namespace Contrib.Cache {
 
             SchemaBuilder.AlterTable("CacheSettingsPartRecord",
                 table => table
-                    .AddColumn<string>("DebugMode", c => c.WithDefault(false))
+                    .AddColumn<bool>("DebugMode", c => c.WithDefault(false))
                 );
             
             return 2;
