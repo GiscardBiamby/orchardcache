@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Web;
+using System.Web.Mvc;
 using System.Web.Routing;
 using Contrib.Cache.ViewModels;
 using Orchard;
@@ -39,5 +40,15 @@ namespace Contrib.Cache.Services {
         /// Returns all defined configurations for specific routes
         /// </summary>
         IEnumerable<RouteConfiguration> GetRouteConfigurations();
+
+        /// <summary>
+        /// Generates an Anti Forgery Token
+        /// </summary>
+        string GenerateAntiForgeryToken(ViewContext viewContext);
+
+        /// <summary>
+        /// Generates the content for a specific content item
+        /// </summary>
+        string GenerateContentItemSubsitution(int id, ViewContext viewContext);
     }
 }

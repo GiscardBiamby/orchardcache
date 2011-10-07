@@ -80,6 +80,7 @@
   <ItemGroup>
     <Compile Include="AdminMenu.cs" />
     <Compile Include="Controllers\AdminController.cs" />
+    <Compile Include="Controllers\ItemController.cs" />
     <Compile Include="Controllers\StatisticsController.cs" />
     <Compile Include="Filters\OutputCacheFilter.cs" />
     <Compile Include="Handlers\CacheSettingsPartHandler.cs" />
