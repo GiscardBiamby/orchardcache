@@ -81,6 +81,7 @@ namespace Contrib.Cache.Controllers {
                 DefaultCacheDuration = settings.DefaultCacheDuration,
                 IgnoredUrls = settings.IgnoredUrls,
                 DebugMode = settings.DebugMode,
+                ApplyCulture = settings.ApplyCulture,
                 RouteConfigurations = routeConfigurations
             };
 
@@ -101,6 +102,7 @@ namespace Contrib.Cache.Controllers {
                 settings.DefaultCacheDuration = model.DefaultCacheDuration;
                 settings.IgnoredUrls = model.IgnoredUrls;
                 settings.DebugMode = model.DebugMode;
+                settings.ApplyCulture = model.ApplyCulture;
 
                 // invalidates the settings cache
                 _signals.Trigger(CacheSettingsPart.CacheKey);

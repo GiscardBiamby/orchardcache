@@ -2,7 +2,6 @@
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Web;
 using System.Web.Mvc;
 using System.Web.Routing;
 using Contrib.Cache.Models;
@@ -54,6 +53,7 @@ namespace Contrib.Cache.Filters
         private bool _debugMode;
         private int _cacheDuration;
         private string _ignoredUrls;
+        private bool _applyCulture;
         private string _cacheKey;
 
         private WorkContext _workContext;
@@ -94,6 +94,14 @@ namespace Contrib.Cache.Filters
                 {
                     context.Monitor(_signals.When(CacheSettingsPart.CacheKey));
                     return _workContext.CurrentSite.As<CacheSettingsPart>().IgnoredUrls;
+                }
+            );
+
+            // caches the culture setting
+            _applyCulture = _cacheManager.Get("CacheSettingsPart.ApplyCulture",
+                context => {
+                    context.Monitor(_signals.When(CacheSettingsPart.CacheKey));
+                    return _workContext.CurrentSite.As<CacheSettingsPart>().ApplyCulture;
                 }
             );
 
@@ -167,7 +175,7 @@ namespace Contrib.Cache.Filters
             var configurations = _cacheService.GetRouteConfigurations();
             var route = (Route)filterContext.Controller.ControllerContext.RouteData.Route;
             var key = _cacheService.GetRouteDescriptorKey(route.Url, route.DataTokens);
-            var configuration = configurations.Where(c => c.RouteKey == key).FirstOrDefault();
+            var configuration = configurations.FirstOrDefault(c => c.RouteKey == key);
 
             // do not cache ?
             if (configuration != null && configuration.Duration == 0)
@@ -257,7 +265,9 @@ namespace Contrib.Cache.Filters
             }
 
             // include the theme in the cache key
-            keyBuilder.Append("culture=").Append(_workContext.CurrentCulture).Append(";");
+            if (_applyCulture) {
+                keyBuilder.Append("culture=").Append(_workContext.CurrentCulture).Append(";");
+            }
 
             // include the theme in the cache key
             keyBuilder.Append("theme=").Append(_themeManager.GetRequestTheme(filterContext.RequestContext).Id).Append(";");

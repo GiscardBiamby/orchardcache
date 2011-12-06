@@ -18,6 +18,11 @@ namespace Contrib.Cache.Models
             set { Record.IgnoredUrls = value; }
         }
 
+        public bool ApplyCulture {
+            get { return Record.ApplyCulture; }
+            set { Record.DebugMode = value; }
+        }
+
         public bool DebugMode
         {
             get { return Record.DebugMode; }
