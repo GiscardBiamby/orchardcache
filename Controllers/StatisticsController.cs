@@ -1,13 +1,9 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using System.Web.Mvc;
-using Autofac.Features.Metadata;
 using Contrib.Cache.Services;
 using Contrib.Cache.ViewModels;
 using Orchard;
-using Orchard.Caching;
 using Orchard.Localization;
-using Orchard.Mvc.Routes;
 using Orchard.Security;
 using Orchard.UI.Admin;
 
@@ -18,8 +14,6 @@ namespace Contrib.Cache.Controllers {
 
         public StatisticsController(
             IOrchardServices services,
-            IEnumerable<Meta<IRouteProvider>> routeProviders,
-            ISignals signals,
             ICacheService cacheService) {
             _cacheService = cacheService;
             Services = services;
@@ -32,7 +26,7 @@ namespace Contrib.Cache.Controllers {
             if (!Services.Authorizer.Authorize(StandardPermissions.SiteOwner, T("Not allowed to manage cache")))
                 return new HttpUnauthorizedResult();
 
-            var model = new StatisticsViewModel() {
+            var model = new StatisticsViewModel {
                 CacheItems = _cacheService.GetCacheItems().ToList().OrderByDescending(x => x.CachedOnUtc),
             };
 
