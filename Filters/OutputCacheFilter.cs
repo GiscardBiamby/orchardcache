@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -12,6 +14,7 @@ using Orchard;
 using Orchard.Caching;
 using Orchard.ContentManagement;
 using Orchard.Environment.Configuration;
+using Orchard.Logging;
 using Orchard.Mvc.Filters;
 using Orchard.Services;
 using Orchard.Themes;
@@ -50,6 +53,8 @@ namespace Contrib.Cache.Filters
             _cacheService = cacheService;
             _signals = signals;
             _shellSettings = shellSettings;
+
+            Logger = NullLogger.Instance;
         }
 
         private bool _debugMode;
@@ -57,43 +62,49 @@ namespace Contrib.Cache.Filters
         private string _ignoredUrls;
         private bool _applyCulture;
         private string _cacheKey;
+        private string _invariantCacheKey;
 
         private WorkContext _workContext;
         private CapturingResponseFilter _filter;
+
+        public ILogger Logger { get; set; }
 
         public void OnActionExecuting(ActionExecutingContext filterContext)
         {
             // before executing an action, we check if a valid cached result is already 
             // existing for this context (url, theme, culture, tenant)
 
+            Logger.Debug("Request on: " + filterContext.RequestContext.HttpContext.Request.RawUrl);
+
             // don't cache POST requests
             if(filterContext.HttpContext.Request.HttpMethod.Equals("POST", StringComparison.OrdinalIgnoreCase) ) {
+                Logger.Debug("Request ignored on POST");
                 return;
             }
 
             // don't cache the admin
             if (AdminFilter.IsApplied(new RequestContext(filterContext.HttpContext, new RouteData()))) {
+                Logger.Debug("Request ignored on Admin section");
                 return;
             }
 
             // ignore child actions, e.g. HomeController is using RenderAction()
-            if (filterContext.IsChildAction)
-            {
+            if (filterContext.IsChildAction){
+                Logger.Debug("Request ignored on Child actions");
                 return;
             }
 
             _workContext = _workContextAccessor.GetContext();
 
             // don't return any cached content, or cache any content, if the user is authenticated
-            if (_workContext.CurrentUser != null)
-            {
+            if (_workContext.CurrentUser != null) {
+                Logger.Debug("Request ignored on Authenticated user");
                 return;
             }
 
             // caches the default cache duration to prevent a query to the settings
             _cacheDuration = _cacheManager.Get("CacheSettingsPart.Duration",
-                context =>
-                {
+                context => {
                     context.Monitor(_signals.When(CacheSettingsPart.CacheKey));
                     return _workContext.CurrentSite.As<CacheSettingsPart>().DefaultCacheDuration;
                 }
@@ -101,8 +112,7 @@ namespace Contrib.Cache.Filters
 
             // caches the ignored urls to prevent a query to the settings
             _ignoredUrls = _cacheManager.Get("CacheSettingsPart.IgnoredUrls",
-                context =>
-                {
+                context => {
                     context.Monitor(_signals.When(CacheSettingsPart.CacheKey));
                     return _workContext.CurrentSite.As<CacheSettingsPart>().IgnoredUrls;
                 }
@@ -118,8 +128,7 @@ namespace Contrib.Cache.Filters
 
             // caches the ignored urls to prevent a query to the settings
             _debugMode = _cacheManager.Get("CacheSettingsPart.DebugMode",
-                context =>
-                {
+                context => {
                     context.Monitor(_signals.When(CacheSettingsPart.CacheKey));
                     return _workContext.CurrentSite.As<CacheSettingsPart>().DebugMode;
                 }
@@ -128,7 +137,8 @@ namespace Contrib.Cache.Filters
             CacheItem cacheItem = null;
 
             // compute the cache key
-            _cacheKey = ComputeCacheKey(filterContext);
+            _cacheKey = ComputeCacheKey(filterContext, filterContext.ActionParameters);
+            _invariantCacheKey = ComputeCacheKey(filterContext, null);
             
             // don't retrieve cache content if refused
             // in this case the result of the action will update the current cached version
@@ -136,6 +146,13 @@ namespace Contrib.Cache.Filters
 
                 // fetch cached data
                 cacheItem = filterContext.HttpContext.Cache[_cacheKey] as CacheItem;
+
+                if(cacheItem == null) {
+                    Logger.Debug("Cached version not found");
+                }
+            }
+            else {
+                Logger.Debug("Cache-Control = no-cache requested");
             }
 
             var response = filterContext.HttpContext.Response;
@@ -143,8 +160,18 @@ namespace Contrib.Cache.Filters
             // render cached content
             if (cacheItem != null)
             {
-                // replace any anti forgery token with a fresh value
+                Logger.Debug("Cache item found, expires on " + cacheItem.ValidUntilUtc);
+
                 var output = cacheItem.Output;
+
+                /* 
+                 * 
+                 * There is no need to replace the AntiForgeryToken as it is not used for unauthenticated requests
+                 * and at this point, the request can't be authenticated
+                 *
+                 * 
+
+                // replace any anti forgery token with a fresh value
                 if (output.Contains(AntiforgeryBeacon))
                 {
                     var viewContext = new ViewContext
@@ -158,6 +185,8 @@ namespace Contrib.Cache.Filters
                     var token = htmlHelper.AntiForgeryToken(siteSalt);
                     output = output.Replace(AntiforgeryBeacon, token.ToString());
                 }
+
+                 */
 
                 // adds some caching information to the output if requested
                 if (_debugMode)
@@ -182,15 +211,45 @@ namespace Contrib.Cache.Filters
 
         public void OnResultExecuted(ResultExecutedContext filterContext)
         {
-            // if the result of a POST is a Redirect 
-            // then invalid the cache for the result
+            var response = filterContext.HttpContext.Response;
+
+            // if the result of a POST is a Redirect, remove any Cache Item for this url
             // so that the redirected client gets a fresh result
             // i.e., Comment creation
             if (filterContext.HttpContext.Request.HttpMethod.Equals("POST", StringComparison.OrdinalIgnoreCase)
-                && filterContext.Result is RedirectResult)
-                {
+                && filterContext.Result is RedirectResult) {
+                
+                Logger.Debug("Redirect on POST");
+                var redirectUrl = ((RedirectResult) filterContext.Result).Url;
 
-                // todo
+                if (!VirtualPathUtility.IsAbsolute(redirectUrl)) {
+                    var applicationRoot = filterContext.HttpContext.Request.ToRootUrlString();
+                    if (redirectUrl.StartsWith(applicationRoot, StringComparison.OrdinalIgnoreCase)) {
+                        redirectUrl = redirectUrl.Substring(applicationRoot.Length);
+                    }
+                }
+
+                var invariantCacheKey = ComputeCacheKey(
+                    _shellSettings.Name, 
+                    redirectUrl,
+                    () => _workContext.CurrentCulture,
+                    _themeManager.GetRequestTheme(filterContext.RequestContext).Id,
+                    null
+                    );
+
+                var evict = new List<object>();
+
+                foreach (DictionaryEntry entry in filterContext.HttpContext.Cache) {
+                    var item = entry.Value as CacheItem;
+
+                    if(item!= null && item.InvariantCacheKey.Equals(invariantCacheKey, StringComparison.OrdinalIgnoreCase))
+                    evict.Add(entry.Key);
+                }
+
+                evict.ForEach(x => {
+                    filterContext.HttpContext.Cache.Remove(x.ToString());
+                    Logger.Debug("Remove item from cache: " + x.ToString());
+                });
 
                 return;
             }
@@ -224,7 +283,7 @@ namespace Contrib.Cache.Filters
             }
 
             // get contents 
-            var response = filterContext.HttpContext.Response;
+            
             response.Flush();
             var output = _filter.GetContents(response.ContentEncoding);
 
@@ -257,13 +316,15 @@ namespace Contrib.Cache.Filters
                 ContentType = response.ContentType,
                 CachedOnUtc = now,
                 ValidUntilUtc = now.AddSeconds(cacheDuration),
-                Url = filterContext.HttpContext.Request.Url.AbsolutePath,
                 QueryString = filterContext.HttpContext.Request.Url.Query,
                 Output = output,
-                CacheKey = _cacheKey
+                CacheKey = _cacheKey,
+                InvariantCacheKey = _invariantCacheKey,
             };
 
             ApplyCacheControl(cacheItem, response, output);
+
+            Logger.Debug("Cache item added: " + cacheItem.CacheKey);
 
             // add data to cache
             filterContext.HttpContext.Cache.Add(
@@ -299,26 +360,37 @@ namespace Contrib.Cache.Filters
             response.Cache.SetVaryByCustom("browser");
         }
 
-        private string ComputeCacheKey(ActionExecutingContext filterContext)
-        {
+        private string ComputeCacheKey(ControllerContext controllerContext, IEnumerable<KeyValuePair<string, object>> parameters) {
+            var url = controllerContext.HttpContext.Request.RawUrl;
+            if(!VirtualPathUtility.IsAbsolute(url)) {
+                var applicationRoot = controllerContext.HttpContext.Request.ToRootUrlString();
+                if(url.StartsWith(applicationRoot, StringComparison.OrdinalIgnoreCase)) {
+                    url = url.Substring(applicationRoot.Length);
+                }
+            }
+            return ComputeCacheKey(_shellSettings.Name, url, () => _workContext.CurrentCulture, _themeManager.GetRequestTheme(controllerContext.RequestContext).Id, parameters);
+        }
+
+        private string ComputeCacheKey(string tenant, string absoluteUrl, Func<string> culture, string theme, IEnumerable<KeyValuePair<string, object>> parameters){
             var keyBuilder = new StringBuilder();
 
-            keyBuilder.Append("tenant=").Append(_shellSettings.Name).Append(";");
+            keyBuilder.Append("tenant=").Append(tenant).Append(";");
 
-            keyBuilder.Append("url=").Append(filterContext.HttpContext.Request.RawUrl.ToLowerInvariant()).Append(";");
-
-            foreach (var pair in filterContext.ActionParameters)
-            {
-                keyBuilder.AppendFormat("{0}={1};", pair.Key, pair.Value);
-            }
+            keyBuilder.Append("url=").Append(absoluteUrl.ToLowerInvariant()).Append(";");
 
             // include the theme in the cache key
             if (_applyCulture) {
-                keyBuilder.Append("culture=").Append(_workContext.CurrentCulture).Append(";");
+                keyBuilder.Append("culture=").Append(culture().ToLowerInvariant()).Append(";");
             }
 
             // include the theme in the cache key
-            keyBuilder.Append("theme=").Append(_themeManager.GetRequestTheme(filterContext.RequestContext).Id).Append(";");
+            keyBuilder.Append("theme=").Append(theme.ToLowerInvariant()).Append(";");
+
+            if (parameters != null) {
+                foreach (var pair in parameters) {
+                    keyBuilder.AppendFormat("{0}={1};", pair.Key.ToLowerInvariant(), Convert.ToString(pair.Value).ToLowerInvariant());
+                }
+            }
 
             return keyBuilder.ToString();
         }

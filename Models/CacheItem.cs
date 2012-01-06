@@ -10,8 +10,8 @@ namespace Contrib.Cache.Models
         public string Output { get; set; }
         public string ContentType { get; set; }
         public string QueryString { get; set; }
-        public string Url { get; set; }
         public string CacheKey { get; set; }
-        public string RouteDescriptorKey { get; set; }
+        public string InvariantCacheKey { get; set; }
+        public string Url { get; set; }
     }
 }
