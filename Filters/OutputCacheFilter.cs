@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Web;
 using System.Web.Mvc;
 using System.Web.Routing;
 using Contrib.Cache.Models;
@@ -61,9 +63,18 @@ namespace Contrib.Cache.Filters
 
         public void OnActionExecuting(ActionExecutingContext filterContext)
         {
-            // don't cache the admin
-            if (AdminFilter.IsApplied(new RequestContext(filterContext.HttpContext, new RouteData())))
+            // before executing an action, we check if a valid cached result is already 
+            // existing for this context (url, theme, culture, tenant)
+
+            // don't cache POST requests
+            if(filterContext.HttpContext.Request.HttpMethod.Equals("POST", StringComparison.OrdinalIgnoreCase) ) {
                 return;
+            }
+
+            // don't cache the admin
+            if (AdminFilter.IsApplied(new RequestContext(filterContext.HttpContext, new RouteData()))) {
+                return;
+            }
 
             // ignore child actions, e.g. HomeController is using RenderAction()
             if (filterContext.IsChildAction)
@@ -114,16 +125,24 @@ namespace Contrib.Cache.Filters
                 }
             );
 
-            // retrieve the cached content
-            _cacheKey = ComputeCacheKey(filterContext);
+            CacheItem cacheItem = null;
 
-            // fetch cached data
-            var cacheItem = filterContext.HttpContext.Cache[_cacheKey] as CacheItem;
+            // compute the cache key
+            _cacheKey = ComputeCacheKey(filterContext);
+            
+            // don't retrieve cache content if refused
+            // in this case the result of the action will update the current cached version
+            if (filterContext.RequestContext.HttpContext.Request.Headers["Cache-Control"] != "no-cache") {
+
+                // fetch cached data
+                cacheItem = filterContext.HttpContext.Cache[_cacheKey] as CacheItem;
+            }
+
+            var response = filterContext.HttpContext.Response;
 
             // render cached content
             if (cacheItem != null)
             {
-
                 // replace any anti forgery token with a fresh value
                 var output = cacheItem.Output;
                 if (output.Contains(AntiforgeryBeacon))
@@ -152,16 +171,30 @@ namespace Contrib.Cache.Filters
                     ContentType = cacheItem.ContentType
                 };
 
+                ApplyCacheControl(cacheItem, response, output);
+
                 return;
             }
 
             // no cache content available, intercept the execution results for caching
-            var response = filterContext.HttpContext.Response;
             response.Filter = _filter = new CapturingResponseFilter(response.Filter);
         }
 
         public void OnResultExecuted(ResultExecutedContext filterContext)
         {
+            // if the result of a POST is a Redirect 
+            // then invalid the cache for the result
+            // so that the redirected client gets a fresh result
+            // i.e., Comment creation
+            if (filterContext.HttpContext.Request.HttpMethod.Equals("POST", StringComparison.OrdinalIgnoreCase)
+                && filterContext.Result is RedirectResult)
+                {
+
+                // todo
+
+                return;
+            }
+
             // save the result only if the content can be intercepted
             if (_filter == null) return;
 
@@ -230,6 +263,8 @@ namespace Contrib.Cache.Filters
                 CacheKey = _cacheKey
             };
 
+            ApplyCacheControl(cacheItem, response, output);
+
             // add data to cache
             filterContext.HttpContext.Cache.Add(
                 _cacheKey,
@@ -250,9 +285,22 @@ namespace Contrib.Cache.Filters
         {
         }
 
+        /// <summary>
+        /// Define valid cache control values
+        /// </summary>
+        private void ApplyCacheControl(CacheItem cacheItem, HttpResponseBase response, string content) {
+            response.Cache.SetCacheability(HttpCacheability.Public);
+            response.Cache.SetMaxAge(cacheItem.ValidUntilUtc - _clock.UtcNow - TimeSpan.FromSeconds(5));
+            response.Cache.SetETag(content.GetHashCode().ToString(CultureInfo.InvariantCulture));
+            
+            // create a unique cache per browser, in case a Theme is rendered differently (e.g., mobile)
+            // c.f. http://msdn.microsoft.com/en-us/library/aa478965.aspx
+            // c.f. http://stackoverflow.com/questions/6007287/outputcache-varybyheader-user-agent-or-varybycustom-browser
+            response.Cache.SetVaryByCustom("browser");
+        }
+
         private string ComputeCacheKey(ActionExecutingContext filterContext)
         {
-
             var keyBuilder = new StringBuilder();
 
             keyBuilder.Append("tenant=").Append(_shellSettings.Name).Append(";");
