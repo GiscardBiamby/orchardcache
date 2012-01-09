@@ -94,6 +94,12 @@ namespace Contrib.Cache.Filters
                 return;
             }
 
+            // only for ViewResult right now, as we don't want to handle redirects, HttpNotFound, ...
+            if (filterContext.Result as ViewResultBase == null) {
+                Logger.Debug("Ingoring none ViewResult response");
+                return;
+            }
+
             _workContext = _workContextAccessor.GetContext();
 
             // don't return any cached content, or cache any content, if the user is authenticated
@@ -256,12 +262,6 @@ namespace Contrib.Cache.Filters
 
             // save the result only if the content can be intercepted
             if (_filter == null) return;
-
-            // only for ViewResult right now, as we don't want to handle redirects, HttpNotFound, ...
-            var accepted = (filterContext.Result as ViewResult) != null;
-            accepted |= (filterContext.Result as PartialViewResult) != null;
-
-            if (!accepted) return;
 
             // check if there is a specific rule not to cache the whole route
             var configurations = _cacheService.GetRouteConfigurations();
