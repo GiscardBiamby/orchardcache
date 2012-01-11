@@ -358,6 +358,7 @@ namespace Contrib.Cache.Filters
             // c.f. http://msdn.microsoft.com/en-us/library/aa478965.aspx
             // c.f. http://stackoverflow.com/questions/6007287/outputcache-varybyheader-user-agent-or-varybycustom-browser
             response.Cache.SetVaryByCustom("browser");
+            response.Cache.VaryByHeaders["HOST"] = true;
         }
 
         private string ComputeCacheKey(ControllerContext controllerContext, IEnumerable<KeyValuePair<string, object>> parameters) {
