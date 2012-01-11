@@ -350,14 +350,20 @@ namespace Contrib.Cache.Filters
         /// Define valid cache control values
         /// </summary>
         private void ApplyCacheControl(CacheItem cacheItem, HttpResponseBase response, string content) {
+            var maxAge = cacheItem.ValidUntilUtc - _clock.UtcNow - TimeSpan.FromSeconds(5);
+            if(maxAge.TotalMilliseconds < 0) {
+                maxAge = TimeSpan.FromSeconds(0);
+            }
+
             response.Cache.SetCacheability(HttpCacheability.Public);
-            response.Cache.SetMaxAge(cacheItem.ValidUntilUtc - _clock.UtcNow - TimeSpan.FromSeconds(5));
+            response.Cache.SetMaxAge(maxAge);
             response.Cache.SetETag(content.GetHashCode().ToString(CultureInfo.InvariantCulture));
             
             // create a unique cache per browser, in case a Theme is rendered differently (e.g., mobile)
             // c.f. http://msdn.microsoft.com/en-us/library/aa478965.aspx
             // c.f. http://stackoverflow.com/questions/6007287/outputcache-varybyheader-user-agent-or-varybycustom-browser
             response.Cache.SetVaryByCustom("browser");
+            response.Cache.SetOmitVaryStar(false);
             response.Cache.VaryByHeaders["HOST"] = true;
         }
 
