@@ -1,8 +1,10 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Web.Mvc;
 using Contrib.Cache.Services;
 using Contrib.Cache.ViewModels;
 using Orchard;
+using Orchard.Environment.Configuration;
 using Orchard.Localization;
 using Orchard.Security;
 using Orchard.UI.Admin;
@@ -11,11 +13,14 @@ namespace Contrib.Cache.Controllers {
     [Admin]
     public class StatisticsController : Controller {
         private readonly ICacheService _cacheService;
+        private readonly ShellSettings _shellSettings;
 
         public StatisticsController(
             IOrchardServices services,
-            ICacheService cacheService) {
+            ICacheService cacheService,
+            ShellSettings shellSettings) {
             _cacheService = cacheService;
+            _shellSettings = shellSettings;
             Services = services;
             }
 
@@ -27,7 +32,11 @@ namespace Contrib.Cache.Controllers {
                 return new HttpUnauthorizedResult();
 
             var model = new StatisticsViewModel {
-                CacheItems = _cacheService.GetCacheItems().ToList().OrderByDescending(x => x.CachedOnUtc),
+                CacheItems = _cacheService
+                    .GetCacheItems()
+                    .Where(x => x.Tenant.Equals(_shellSettings.Name, StringComparison.OrdinalIgnoreCase))
+                    .ToList()
+                    .OrderByDescending(x => x.CachedOnUtc),
             };
 
             return View(model);

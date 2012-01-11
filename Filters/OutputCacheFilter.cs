@@ -320,6 +320,8 @@ namespace Contrib.Cache.Filters
                 Output = output,
                 CacheKey = _cacheKey,
                 InvariantCacheKey = _invariantCacheKey,
+                Tenant = _shellSettings.Name,
+                Url = filterContext.HttpContext.Request.Url.AbsolutePath
             };
 
             ApplyCacheControl(cacheItem, response, output);
