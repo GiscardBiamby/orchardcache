@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -34,8 +35,9 @@ namespace Contrib.Cache.Filters
         private readonly ISignals _signals;
         private readonly ShellSettings _shellSettings;
 
-        private const string AntiforgeryBeacon = "[[OutputCacheFilterAntiForgeryToken]]";
+        private const string AntiforgeryBeacon = "<!--OutputCacheFilterAntiForgeryToken-->";
         private const string AntiforgeryTag = "<input name=\"__RequestVerificationToken\" type=\"hidden\" value=\"";
+        private const string RefreshKey = "__r";
 
         public OutputCacheFilter(
             ICacheManager cacheManager,
@@ -63,6 +65,9 @@ namespace Contrib.Cache.Filters
         private bool _applyCulture;
         private string _cacheKey;
         private string _invariantCacheKey;
+        private string _actionName;
+        private DateTime _now;
+
 
         private WorkContext _workContext;
         private CapturingResponseFilter _filter;
@@ -71,6 +76,12 @@ namespace Contrib.Cache.Filters
 
         public void OnActionExecuting(ActionExecutingContext filterContext)
         {
+            // use the action in the cacheKey so that the same route can't return cache for different actions
+            _actionName = filterContext.ActionDescriptor.ActionName;
+
+            // saving the current datetime
+            _now = _clock.UtcNow;
+
             // before executing an action, we check if a valid cached result is already 
             // existing for this context (url, theme, culture, tenant)
 
@@ -135,7 +146,7 @@ namespace Contrib.Cache.Filters
             );
 
             CacheItem cacheItem = null;
-
+            
             // compute the cache key
             _cacheKey = ComputeCacheKey(filterContext, filterContext.ActionParameters);
             _invariantCacheKey = ComputeCacheKey(filterContext, null);
@@ -209,18 +220,18 @@ namespace Contrib.Cache.Filters
             response.Filter = _filter = new CapturingResponseFilter(response.Filter);
         }
 
-        public void OnResultExecuted(ResultExecutedContext filterContext)
-        {
-            var response = filterContext.HttpContext.Response;
+
+        public void OnActionExecuted(ActionExecutedContext filterContext) {
 
             // if the result of a POST is a Redirect, remove any Cache Item for this url
             // so that the redirected client gets a fresh result
+            // also add a random token to the query string so that public cachers (IIS, proxies, ...) don't return cached content
             // i.e., Comment creation
             if (filterContext.HttpContext.Request.HttpMethod.Equals("POST", StringComparison.OrdinalIgnoreCase)
                 && filterContext.Result is RedirectResult) {
-                
+
                 Logger.Debug("Redirect on POST");
-                var redirectUrl = ((RedirectResult) filterContext.Result).Url;
+                var redirectUrl = ((RedirectResult)filterContext.Result).Url;
 
                 if (!VirtualPathUtility.IsAbsolute(redirectUrl)) {
                     var applicationRoot = filterContext.HttpContext.Request.ToRootUrlString();
@@ -230,7 +241,7 @@ namespace Contrib.Cache.Filters
                 }
 
                 var invariantCacheKey = ComputeCacheKey(
-                    _shellSettings.Name, 
+                    _shellSettings.Name,
                     redirectUrl,
                     () => _workContext.CurrentCulture,
                     _themeManager.GetRequestTheme(filterContext.RequestContext).Id,
@@ -242,8 +253,8 @@ namespace Contrib.Cache.Filters
                 foreach (DictionaryEntry entry in filterContext.HttpContext.Cache) {
                     var item = entry.Value as CacheItem;
 
-                    if(item!= null && item.InvariantCacheKey.Equals(invariantCacheKey, StringComparison.OrdinalIgnoreCase))
-                    evict.Add(entry.Key);
+                    if (item != null && item.InvariantCacheKey.Equals(invariantCacheKey, StringComparison.OrdinalIgnoreCase))
+                        evict.Add(entry.Key);
                 }
 
                 evict.ForEach(x => {
@@ -251,8 +262,34 @@ namespace Contrib.Cache.Filters
                     Logger.Debug("Remove item from cache: " + x.ToString());
                 });
 
-                return;
+                // adding a refresh key so that the next request will not be cached
+                var epIndex = redirectUrl.IndexOf('?');
+                var qs = new NameValueCollection();
+                if (epIndex > 0) {
+                    qs = HttpUtility.ParseQueryString(redirectUrl.Substring(epIndex));
+                }
+
+                var refresh = _now.Ticks;
+                qs.Remove(RefreshKey);
+
+                qs.Add(RefreshKey, refresh.ToString("x"));
+                var querystring = "?" + string.Join("&", Array.ConvertAll(qs.AllKeys, k => string.Format("{0}={1}", HttpUtility.UrlEncode(k), HttpUtility.UrlEncode(qs[k]))));
+
+                if (epIndex > 0) {
+                    redirectUrl = redirectUrl.Substring(0, epIndex) + querystring;
+                }
+                else {
+                    redirectUrl = redirectUrl + querystring;
+                }
+
+                filterContext.Result = new RedirectResult(redirectUrl, ((RedirectResult)filterContext.Result).Permanent);
+                filterContext.HttpContext.Response.Cache.SetCacheability(HttpCacheability.NoCache);
             }
+        }
+
+        public void OnResultExecuted(ResultExecutedContext filterContext)
+        {
+            var response = filterContext.HttpContext.Response;
 
             // save the result only if the content can be intercepted
             if (_filter == null) return;
@@ -306,16 +343,14 @@ namespace Contrib.Cache.Filters
                 output = sb.ToString();
             }
 
-            var now = _clock.UtcNow;
-
             // default duration of specific one ?
             var cacheDuration = configuration != null && configuration.Duration.HasValue ? configuration.Duration.Value : _cacheDuration;
 
             var cacheItem = new CacheItem
             {
                 ContentType = response.ContentType,
-                CachedOnUtc = now,
-                ValidUntilUtc = now.AddSeconds(cacheDuration),
+                CachedOnUtc = _now,
+                ValidUntilUtc = _now.AddSeconds(cacheDuration),
                 QueryString = filterContext.HttpContext.Request.Url.Query,
                 Output = output,
                 CacheKey = _cacheKey,
@@ -340,9 +375,6 @@ namespace Contrib.Cache.Filters
 
         }
 
-        public void OnActionExecuted(ActionExecutedContext filterContext)
-        {
-        }
 
         public void OnResultExecuting(ResultExecutingContext filterContext)
         {
@@ -377,7 +409,7 @@ namespace Contrib.Cache.Filters
                     url = url.Substring(applicationRoot.Length);
                 }
             }
-            return ComputeCacheKey(_shellSettings.Name, url, () => _workContext.CurrentCulture, _themeManager.GetRequestTheme(controllerContext.RequestContext).Id, parameters);
+            return ComputeCacheKey(_shellSettings.Name, url, () => _workContext.CurrentCulture, _themeManager.GetRequestTheme(controllerContext.RequestContext).Id,  parameters);
         }
 
         private string ComputeCacheKey(string tenant, string absoluteUrl, Func<string> culture, string theme, IEnumerable<KeyValuePair<string, object>> parameters){
@@ -394,6 +426,9 @@ namespace Contrib.Cache.Filters
 
             // include the theme in the cache key
             keyBuilder.Append("theme=").Append(theme.ToLowerInvariant()).Append(";");
+
+            // include the theme in the cache key
+            keyBuilder.Append("action=").Append(_actionName.ToLowerInvariant()).Append(";");
 
             if (parameters != null) {
                 foreach (var pair in parameters) {
