@@ -1,5 +1,4 @@
-﻿@using Contrib.Cache.ViewModels
-@model IndexViewModel
+﻿@model Contrib.Cache.ViewModels.IndexViewModel
            
 @{
     Layout.Title = T("Cache Settings");
@@ -55,7 +54,7 @@
                 <td style="width:60px;">@routeConfiguration.Priority</td>    
                 <td style="width:500px;">
                     @Html.TextBoxFor(m => m.RouteConfigurations[index].Duration, new { @class = "text-small" })
-                    <span class="hint">@T("Leave empty to use default duration, 0 to disable caching on this feature.")</span>
+                    <span class="hint">@T("Leave empty to use default duration, 0 to disable caching on this route.")</span>
                 </td>
                 @Html.HiddenFor(m => m.RouteConfigurations[index].RouteKey)
             </tr>

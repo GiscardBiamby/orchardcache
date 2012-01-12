@@ -303,7 +303,7 @@ namespace Contrib.Cache.Filters
             // check if there is a specific rule not to cache the whole route
             var configurations = _cacheService.GetRouteConfigurations();
             var route = (Route)filterContext.Controller.ControllerContext.RouteData.Route;
-            var key = _cacheService.GetRouteDescriptorKey(route.Url, route.DataTokens);
+            var key = _cacheService.GetRouteDescriptorKey(route);
             var configuration = configurations.FirstOrDefault(c => c.RouteKey == key);
 
             // do not cache ?

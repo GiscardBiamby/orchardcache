@@ -20,7 +20,7 @@ namespace Contrib.Cache.Models
 
         public bool ApplyCulture {
             get { return Record.ApplyCulture; }
-            set { Record.DebugMode = value; }
+            set { Record.ApplyCulture = value; }
         }
 
         public bool DebugMode

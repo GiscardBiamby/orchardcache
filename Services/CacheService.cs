@@ -50,17 +50,18 @@ namespace Contrib.Cache.Services
             httpContext.Cache.Remove(cacheKey);
         }
 
-        public string GetRouteDescriptorKey(string url, RouteValueDictionary routeValueDictionary)
+        public string GetRouteDescriptorKey(Route route)
         {
+        
             var keyBuilder = new StringBuilder();
-            keyBuilder.AppendFormat("url={0};", url);
+            keyBuilder.AppendFormat("url={0};", route.Url);
 
             // the data tokens are used in case the same url is used by several features, like *{path} (Rewrite Rules and Home Page Provider)
-            if (routeValueDictionary != null)
+            if (route.DataTokens != null)
             {
-                foreach (var key in routeValueDictionary.Keys)
+                foreach (var key in route.DataTokens.Keys)
                 {
-                    keyBuilder.AppendFormat("{0}={1};", key, routeValueDictionary[key]);
+                    keyBuilder.AppendFormat("{0}={1};", key, route.DataTokens[key]);
                 }
             }
 

@@ -27,7 +27,7 @@ namespace Contrib.Cache.Services {
         /// <summary>
         /// Returns the key representing a specific route in the db
         /// </summary>
-        string GetRouteDescriptorKey(string url, RouteValueDictionary routeValueDictionary);
+        string GetRouteDescriptorKey(Route route);
 
         /// <summary>
         /// Saves a set of <see cref="RouteConfiguration"/> to the database

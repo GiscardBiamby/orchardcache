@@ -60,7 +60,7 @@ namespace Contrib.Cache.Controllers {
                     // ignore admin routes
                     if (route.Url.StartsWith("Admin/") || route.Url == "Admin") continue;
 
-                    var cacheParameterKey = _cacheService.GetRouteDescriptorKey(route.Url, route.DataTokens);
+                    var cacheParameterKey = _cacheService.GetRouteDescriptorKey(route);
                     var cacheParameter = _cacheService.GetCacheParameterByKey(cacheParameterKey);
                     var duration = cacheParameter == null ? default(int?) : cacheParameter.Duration;
 
