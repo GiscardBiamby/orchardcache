@@ -220,13 +220,24 @@ namespace Contrib.Cache.Filters
             response.Filter = _filter = new CapturingResponseFilter(response.Filter);
         }
 
-
         public void OnActionExecuted(ActionExecutedContext filterContext) {
-
             // if the result of a POST is a Redirect, remove any Cache Item for this url
             // so that the redirected client gets a fresh result
             // also add a random token to the query string so that public cachers (IIS, proxies, ...) don't return cached content
             // i.e., Comment creation
+
+            // ignore in admin
+            if (AdminFilter.IsApplied(new RequestContext(filterContext.HttpContext, new RouteData()))) {
+                return;
+            }
+
+            _workContext = _workContextAccessor.GetContext();
+
+            // ignore authenticated requests
+            if (_workContext.CurrentUser != null) {
+                return;
+            }
+
             if (filterContext.HttpContext.Request.HttpMethod.Equals("POST", StringComparison.OrdinalIgnoreCase)
                 && filterContext.Result is RedirectResult) {
 
@@ -248,19 +259,7 @@ namespace Contrib.Cache.Filters
                     null
                     );
 
-                var evict = new List<object>();
-
-                foreach (DictionaryEntry entry in filterContext.HttpContext.Cache) {
-                    var item = entry.Value as CacheItem;
-
-                    if (item != null && item.InvariantCacheKey.Equals(invariantCacheKey, StringComparison.OrdinalIgnoreCase))
-                        evict.Add(entry.Key);
-                }
-
-                evict.ForEach(x => {
-                    filterContext.HttpContext.Cache.Remove(x.ToString());
-                    Logger.Debug("Remove item from cache: " + x.ToString());
-                });
+                RemoveFromCache(filterContext.HttpContext, item => item.InvariantCacheKey.Equals(invariantCacheKey, StringComparison.OrdinalIgnoreCase));
 
                 // adding a refresh key so that the next request will not be cached
                 var epIndex = redirectUrl.IndexOf('?');
@@ -363,6 +362,9 @@ namespace Contrib.Cache.Filters
 
             Logger.Debug("Cache item added: " + cacheItem.CacheKey);
 
+            // remove old cache data
+            RemoveFromCache(filterContext.HttpContext, item => item.InvariantCacheKey.Equals(_invariantCacheKey, StringComparison.OrdinalIgnoreCase));
+
             // add data to cache
             filterContext.HttpContext.Cache.Add(
                 _cacheKey,
@@ -372,9 +374,7 @@ namespace Contrib.Cache.Filters
                 System.Web.Caching.Cache.NoSlidingExpiration,
                 System.Web.Caching.CacheItemPriority.Normal,
                 null);
-
         }
-
 
         public void OnResultExecuting(ResultExecutingContext filterContext)
         {
@@ -393,12 +393,25 @@ namespace Contrib.Cache.Filters
             response.Cache.SetMaxAge(maxAge);
             response.Cache.SetETag(content.GetHashCode().ToString(CultureInfo.InvariantCulture));
             
+            response.Cache.SetOmitVaryStar(true);
+
+            // different tenants with the same urls have different entries
+            response.Cache.VaryByHeaders["HOST"] = true;
+
+            // Set the Vary: Accept-Encoding response header. 
+            // This instructs the proxies to cache two versions of the resource: one compressed, and one uncompressed. 
+            // The correct version of the resource is delivered based on the client request header. 
+            // This is a good choice for applications that are singly homed and depend on public proxies for user locality.
+            response.Cache.VaryByHeaders["Accept-Encoding"] = true;
+
             // create a unique cache per browser, in case a Theme is rendered differently (e.g., mobile)
             // c.f. http://msdn.microsoft.com/en-us/library/aa478965.aspx
             // c.f. http://stackoverflow.com/questions/6007287/outputcache-varybyheader-user-agent-or-varybycustom-browser
-            response.Cache.SetVaryByCustom("browser");
-            response.Cache.SetOmitVaryStar(false);
-            response.Cache.VaryByHeaders["HOST"] = true;
+            response.Cache.SetVaryByCustom("browser"); 
+
+            // enabling this would create an entry for each different browser sub-version
+            // response.Cache.VaryByHeaders.UserAgent = true;
+            
         }
 
         private string ComputeCacheKey(ControllerContext controllerContext, IEnumerable<KeyValuePair<string, object>> parameters) {
@@ -477,6 +490,21 @@ namespace Contrib.Cache.Filters
             return false;
         }
 
+        private void RemoveFromCache(HttpContextBase httpContext, Func<CacheItem, bool> predicate) {
+            var evict = new List<object>();
+
+            foreach (DictionaryEntry entry in httpContext.Cache) {
+                var item = entry.Value as CacheItem;
+
+                if (item != null && predicate(item))
+                    evict.Add(entry.Key);
+            }
+
+            evict.ForEach(x => {
+                httpContext.Cache.Remove(x.ToString());
+                Logger.Debug("Remove item from cache: " + x.ToString());
+            });
+        }
     }
         /// <summary>
     /// Captures the response stream while writing to it
@@ -558,6 +586,7 @@ namespace Contrib.Cache.Filters
             _mem.Read(buffer, 0, buffer.Length);
             return enc.GetString(buffer, 0, buffer.Length);
         }
+
     }
 
     public class ViewDataContainer : IViewDataContainer
