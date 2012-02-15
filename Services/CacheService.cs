@@ -78,7 +78,7 @@ namespace Contrib.Cache.Services
             return _cacheManager.Get("GetRouteConfigurations", 
                 ctx => {
                     ctx.Monitor(_signals.When("GetRouteConfigurations"));
-                    return _repository.Fetch(c => true).Select(c => new RouteConfiguration { RouteKey = c.RouteKey, Duration = c.Duration });
+                    return _repository.Fetch(c => true).Select(c => new RouteConfiguration { RouteKey = c.RouteKey, Duration = c.Duration }).ToList();
                 });
         }
 
