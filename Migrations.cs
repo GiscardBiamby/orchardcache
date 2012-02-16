@@ -8,6 +8,7 @@ namespace Contrib.Cache {
                 table => table
                     .ContentPartRecord()
                     .Column<int>("DefaultCacheDuration")
+                    .Column<int>("DefaultMaxAge")
                     .Column<string>("IgnoredUrls", c => c.Unlimited())
                     .Column<bool>("DebugMode", c => c.WithDefault(false))
                     .Column<bool>("ApplyCulture", c => c.WithDefault(false))
@@ -17,10 +18,11 @@ namespace Contrib.Cache {
                     table => table
                         .Column<int>("Id", c => c.PrimaryKey().Identity())
                         .Column<int>("Duration")
+                        .Column<int>("MaxAge")
                         .Column<string>("RouteKey", c => c.WithLength(255))
                     );
 
-            return 3;
+            return 4;
         }
 
         public int UpdateFrom1() {
@@ -52,6 +54,21 @@ namespace Contrib.Cache {
                 );
 
             return 3;
+        }
+
+        public int UpdateFrom3() {
+
+            SchemaBuilder.AlterTable("CacheSettingsPartRecord",
+                table => table
+                    .AddColumn<int>("DefaultMaxAge")
+                );
+
+            SchemaBuilder.AlterTable("CacheParameterRecord",
+                    table => table
+                        .AddColumn<int>("MaxAge")
+                    );
+
+            return 4;
         }
     }
 }

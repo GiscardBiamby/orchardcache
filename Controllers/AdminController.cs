@@ -55,12 +55,16 @@ namespace Contrib.Cache.Controllers {
                 if (feature == null) continue;
 
                 foreach (var routeDescriptor in routeCollection) {
-                    var route = (Route)routeDescriptor.Route;
+                    var route = routeDescriptor.Route as Route;
+
+                    if(route == null) {
+                        continue;
+                    }
 
                     // ignore admin routes
                     if (route.Url.StartsWith("Admin/") || route.Url == "Admin") continue;
 
-                    var cacheParameterKey = _cacheService.GetRouteDescriptorKey(route);
+                    var cacheParameterKey = _cacheService.GetRouteDescriptorKey(HttpContext, route);
                     var cacheParameter = _cacheService.GetCacheParameterByKey(cacheParameterKey);
                     var duration = cacheParameter == null ? default(int?) : cacheParameter.Duration;
 
@@ -79,6 +83,7 @@ namespace Contrib.Cache.Controllers {
 
             var model = new IndexViewModel {
                 DefaultCacheDuration = settings.DefaultCacheDuration,
+                DefaultMaxAge = settings.DefaultMaxAge,
                 IgnoredUrls = settings.IgnoredUrls,
                 DebugMode = settings.DebugMode,
                 ApplyCulture = settings.ApplyCulture,
@@ -100,6 +105,7 @@ namespace Contrib.Cache.Controllers {
             if(TryUpdateModel(model)) {
                 var settings = Services.WorkContext.CurrentSite.As<CacheSettingsPart>();
                 settings.DefaultCacheDuration = model.DefaultCacheDuration;
+                settings.DefaultMaxAge = model.DefaultMaxAge;
                 settings.IgnoredUrls = model.IgnoredUrls;
                 settings.DebugMode = model.DebugMode;
                 settings.ApplyCulture = model.ApplyCulture;

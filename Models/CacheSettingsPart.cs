@@ -1,19 +1,20 @@
 using Orchard.ContentManagement;
 
-namespace Contrib.Cache.Models
-{
-    public class CacheSettingsPart : ContentPart<CacheSettingsPartRecord>
-    {
+namespace Contrib.Cache.Models {
+    public class CacheSettingsPart : ContentPart<CacheSettingsPartRecord> {
         public const string CacheKey = "CacheSettingsPart";
 
-        public int DefaultCacheDuration
-        {
+        public int DefaultCacheDuration {
             get { return Record.DefaultCacheDuration; }
             set { Record.DefaultCacheDuration = value; }
         }
 
-        public string IgnoredUrls
-        {
+        public int DefaultMaxAge {
+            get { return Record.DefaultMaxAge; }
+            set { Record.DefaultMaxAge = value; }
+        }
+
+        public string IgnoredUrls {
             get { return Record.IgnoredUrls; }
             set { Record.IgnoredUrls = value; }
         }
@@ -23,8 +24,7 @@ namespace Contrib.Cache.Models
             set { Record.ApplyCulture = value; }
         }
 
-        public bool DebugMode
-        {
+        public bool DebugMode {
             get { return Record.DebugMode; }
             set { Record.DebugMode = value; }
         }

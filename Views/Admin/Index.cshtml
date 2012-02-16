@@ -16,7 +16,13 @@
     <fieldset>
         <label>@T("Default Cache Duration")</label>
         @Html.TextBoxFor(m => m.DefaultCacheDuration, new { @class = "text-small" })
-        <span class="hint">@T("Number of seconds the pages should be kept in cache by default.")</span>
+        <span class="hint">@T("Number of seconds the pages should be kept in cache on the server.")</span>
+    </fieldset>
+    
+    <fieldset>
+        <label>@T("Max Age")</label>
+        @Html.TextBoxFor(m => m.DefaultMaxAge, new { @class = "text-small" })
+        <span class="hint">@T("When defined, a cache-control header with a max-age property will be added. Use this in order to enable kernel cache on IIS.")</span>
     </fieldset>
     
     <fieldset>

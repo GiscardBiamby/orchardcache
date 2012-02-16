@@ -61,6 +61,7 @@ namespace Contrib.Cache.Filters
 
         private bool _debugMode;
         private int _cacheDuration;
+        private int _maxAge;
         private string _ignoredUrls;
         private bool _applyCulture;
         private string _cacheKey;
@@ -118,6 +119,14 @@ namespace Contrib.Cache.Filters
                 context => {
                     context.Monitor(_signals.When(CacheSettingsPart.CacheKey));
                     return _workContext.CurrentSite.As<CacheSettingsPart>().DefaultCacheDuration;
+                }
+            );
+
+            // caches the default max age duration to prevent a query to the settings
+            _maxAge = _cacheManager.Get("CacheSettingsPart.MaxAge",
+                context => {
+                    context.Monitor(_signals.When(CacheSettingsPart.CacheKey));
+                    return _workContext.CurrentSite.As<CacheSettingsPart>().DefaultMaxAge;
                 }
             );
 
@@ -301,8 +310,8 @@ namespace Contrib.Cache.Filters
 
             // check if there is a specific rule not to cache the whole route
             var configurations = _cacheService.GetRouteConfigurations();
-            var route = (Route)filterContext.Controller.ControllerContext.RouteData.Route;
-            var key = _cacheService.GetRouteDescriptorKey(route);
+            var route = filterContext.Controller.ControllerContext.RouteData.Route;
+            var key = _cacheService.GetRouteDescriptorKey(filterContext.HttpContext, route);
             var configuration = configurations.FirstOrDefault(c => c.RouteKey == key);
 
             // do not cache ?
@@ -384,13 +393,16 @@ namespace Contrib.Cache.Filters
         /// Define valid cache control values
         /// </summary>
         private void ApplyCacheControl(CacheItem cacheItem, HttpResponseBase response, string content) {
-            var maxAge = cacheItem.ValidUntilUtc - _clock.UtcNow - TimeSpan.FromSeconds(5);
-            if(maxAge.TotalMilliseconds < 0) {
-                maxAge = TimeSpan.FromSeconds(0);
+            if (_maxAge > 0) {
+                var maxAge = new TimeSpan(0, 0, 0, _maxAge); //cacheItem.ValidUntilUtc - _clock.UtcNow;
+                if (maxAge.TotalMilliseconds < 0) {
+                    maxAge = TimeSpan.FromSeconds(0);
+                }
+
+                response.Cache.SetCacheability(HttpCacheability.Public);
+                response.Cache.SetMaxAge(maxAge);
             }
 
-            response.Cache.SetCacheability(HttpCacheability.Public);
-            response.Cache.SetMaxAge(maxAge);
             response.Cache.SetETag(content.GetHashCode().ToString(CultureInfo.InvariantCulture));
             
             response.Cache.SetOmitVaryStar(true);
@@ -506,7 +518,8 @@ namespace Contrib.Cache.Filters
             });
         }
     }
-        /// <summary>
+    
+    /// <summary>
     /// Captures the response stream while writing to it
     /// </summary>
     public class CapturingResponseFilter : Stream
