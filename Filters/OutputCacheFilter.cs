@@ -220,6 +220,8 @@ namespace Contrib.Cache.Filters
                     ContentType = cacheItem.ContentType
                 };
 
+                response.StatusCode = cacheItem.StatusCode;
+
                 ApplyCacheControl(cacheItem, response, output);
 
                 return;
@@ -230,6 +232,13 @@ namespace Contrib.Cache.Filters
         }
 
         public void OnActionExecuted(ActionExecutedContext filterContext) {
+
+            // ignore HttpNotFoundResult from cache
+            if (filterContext.Result is HttpNotFoundResult) {
+                _filter = null;
+                return;
+            }
+
             // if the result of a POST is a Redirect, remove any Cache Item for this url
             // so that the redirected client gets a fresh result
             // also add a random token to the query string so that public cachers (IIS, proxies, ...) don't return cached content
@@ -304,7 +313,7 @@ namespace Contrib.Cache.Filters
 
             // only for ViewResult right now, as we don't want to handle redirects, HttpNotFound, ...
             if (filterContext.Result as ViewResultBase == null) {
-                Logger.Debug("Ingoring none ViewResult response");
+                Logger.Debug("Ignoring none ViewResult response");
                 return;
             }
 
@@ -357,6 +366,7 @@ namespace Contrib.Cache.Filters
             var cacheItem = new CacheItem
             {
                 ContentType = response.ContentType,
+                StatusCode = response.StatusCode,
                 CachedOnUtc = _now,
                 ValidUntilUtc = _now.AddSeconds(cacheDuration),
                 QueryString = filterContext.HttpContext.Request.Url.Query,

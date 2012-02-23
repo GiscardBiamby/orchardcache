@@ -14,5 +14,6 @@ namespace Contrib.Cache.Models
         public string InvariantCacheKey { get; set; }
         public string Url { get; set; }
         public string Tenant { get; set; }
+        public int StatusCode { get; set; }
     }
 }

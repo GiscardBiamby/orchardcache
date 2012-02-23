@@ -1,26 +1,31 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Web;
+using System.Web.Mvc;
+using System.Web.Routing;
 using Contrib.Cache.Models;
 using Contrib.Cache.Services;
 using Orchard;
 using Orchard.ContentManagement;
-using Orchard.ContentManagement.Aspects;
 using Orchard.Core.Common.Models;
 using Orchard.Data;
 using Orchard.ContentManagement.Handlers;
+using Orchard.Mvc.Html;
 
 namespace Contrib.Cache.Handlers {
     public class CacheSettingsPartHandler : ContentHandler {
         private readonly IWorkContextAccessor _workContextAccessor;
         private readonly ICacheService _cacheService;
+        private readonly RequestContext _requestContext;
 
         public CacheSettingsPartHandler(
             IRepository<CacheSettingsPartRecord> repository,
             IWorkContextAccessor workContextAccessor,
-            ICacheService cacheService) {
+            ICacheService cacheService,
+            RequestContext requestContext) {
             _workContextAccessor = workContextAccessor;
             _cacheService = cacheService;
+            _requestContext = requestContext;
             Filters.Add(new ActivatingFilter<CacheSettingsPart>("Site"));
             Filters.Add(StorageFilter.For(repository));
 
@@ -34,27 +39,22 @@ namespace Contrib.Cache.Handlers {
                     var evict = new List<CacheItem>();
                     var workContext = _workContextAccessor.GetContext();
 
-                    Action<IAliasAspect> findAndEvict = p => {
+                    Action<IContent> findAndEvict = p => {
                         foreach (var cacheItem in _cacheService.GetCacheItems()) {
-                            if (cacheItem.Url == VirtualPathUtility.ToAbsolute("~/" + p.Path)) {
+                            var urlHelper = new UrlHelper(_requestContext);
+                            if (cacheItem.Url == VirtualPathUtility.ToAbsolute("~/" + urlHelper.ItemDisplayUrl(p))) {
                                 evict.Add(cacheItem);
                             }
                         }
                     };
 
-                    var alias = part.As<IAliasAspect>();
-                    if (alias != null) {
-                        findAndEvict(alias);
-                    }
-
+                    findAndEvict(part);
+                    
                     // search the cache for containers too
                     var commonPart = part.As<CommonPart>();
                     if (commonPart != null) {
                         if (commonPart.Container != null) {
-                            var aliasCommon = commonPart.Container.As<IAliasAspect>();
-                            if (aliasCommon != null) {
-                                findAndEvict(aliasCommon);
-                            }
+                            findAndEvict(commonPart.Container);
                         }
                     }
 
