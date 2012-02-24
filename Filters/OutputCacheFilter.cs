@@ -5,6 +5,7 @@ using System.Collections.Specialized;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Web;
 using System.Web.Mvc;
@@ -233,8 +234,8 @@ namespace Contrib.Cache.Filters
 
         public void OnActionExecuted(ActionExecutedContext filterContext) {
 
-            // ignore HttpNotFoundResult from cache
-            if (filterContext.Result is HttpNotFoundResult) {
+            // ignore error results from cache
+            if (filterContext.HttpContext.Response.StatusCode != (int)HttpStatusCode.OK) {
                 _filter = null;
                 return;
             }
