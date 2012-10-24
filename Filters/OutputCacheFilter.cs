@@ -212,7 +212,7 @@ namespace Contrib.Cache.Filters
                 // adds some caching information to the output if requested
                 if (_debugMode)
                 {
-                    output += "<!-- Cached on " + cacheItem.CachedOnUtc + " (UTC) until" + cacheItem.ValidUntilUtc + "  (UTC) -->";
+                    output += "\r\n<!-- Cached on " + cacheItem.CachedOnUtc + " (UTC) until " + cacheItem.ValidUntilUtc + "  (UTC) -->";
                 }
 
                 filterContext.Result = new ContentResult
