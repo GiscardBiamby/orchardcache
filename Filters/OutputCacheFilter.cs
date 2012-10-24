@@ -348,8 +348,7 @@ namespace Contrib.Cache.Filters
             }
 
             // ignored url ?
-            var basePath = filterContext.HttpContext.Request.ToApplicationRootUrlString();
-            if (IsIgnoredUrl(filterContext.RequestContext.HttpContext.Request.Url.AbsoluteUri, _ignoredUrls, basePath))
+            if (IsIgnoredUrl(filterContext.RequestContext.HttpContext.Request.AppRelativeCurrentExecutionFilePath, _ignoredUrls))
             {
                 return;
             }
@@ -364,12 +363,12 @@ namespace Contrib.Cache.Filters
                 return;
             }
 
-            var tokenIndex = output.IndexOf(AntiforgeryTag);
+            var tokenIndex = output.IndexOf(AntiforgeryTag, StringComparison.Ordinal);
 
             // substitute antiforgery token by a beacon
             if (tokenIndex != -1)
             {
-                var tokenEnd = output.IndexOf(">", tokenIndex);
+                var tokenEnd = output.IndexOf(">", tokenIndex, StringComparison.Ordinal);
                 var sb = new StringBuilder();
                 sb.Append(output.Substring(0, tokenIndex));
                 sb.Append(AntiforgeryBeacon);
@@ -495,11 +494,16 @@ namespace Contrib.Cache.Filters
         /// <summary>
         /// Returns true if the given url should be ignored, as defined in the settings
         /// </summary>
-        private static bool IsIgnoredUrl(string url, string ignoredUrls, string basePath)
+        private static bool IsIgnoredUrl(string url, string ignoredUrls)
         {
             if(String.IsNullOrEmpty(ignoredUrls))
             {
                 return false;
+            }
+
+            // remove ~ if present
+            if(url.StartsWith("~")) {
+                url = url.Substring(1);
             }
 
             using (var urlReader = new StringReader(ignoredUrls))
@@ -507,6 +511,11 @@ namespace Contrib.Cache.Filters
                 string relativePath;
                 while (null != (relativePath = urlReader.ReadLine()))
                 {
+                    // remove ~ if present
+                    if (relativePath.StartsWith("~")) {
+                        relativePath = relativePath.Substring(1);
+                    }
+
                     if (String.IsNullOrWhiteSpace(relativePath))
                     {
                         continue;
@@ -514,13 +523,13 @@ namespace Contrib.Cache.Filters
 
                     relativePath = relativePath.Trim();
 
-                    // ignore comments)
+                    // ignore comments
                     if(relativePath.StartsWith("#"))
                     {
                         continue;
                     }
 
-                    if(String.Equals(basePath + relativePath, url, StringComparison.OrdinalIgnoreCase))
+                    if(String.Equals(relativePath, url, StringComparison.OrdinalIgnoreCase))
                     {
                         return true;
                     }
