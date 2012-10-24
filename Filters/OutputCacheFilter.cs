@@ -81,6 +81,16 @@ namespace Contrib.Cache.Filters
             // use the action in the cacheKey so that the same route can't return cache for different actions
             _actionName = filterContext.ActionDescriptor.ActionName;
 
+            // apply OutputCacheAttribute logic if defined
+            var outputCacheAttribute = filterContext.ActionDescriptor.GetCustomAttributes(typeof (OutputCacheAttribute), true).Cast<OutputCacheAttribute>().FirstOrDefault() ;
+
+            if(outputCacheAttribute != null) {
+                if (outputCacheAttribute.Duration <= 0 || outputCacheAttribute.NoStore) {
+                    Logger.Debug("Request ignored based on OutputCache attribute");
+                    return;
+                }
+            }
+
             // saving the current datetime
             _now = _clock.UtcNow;
 
