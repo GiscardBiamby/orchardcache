@@ -156,9 +156,16 @@ namespace Contrib.Cache.Filters
             );
 
             CacheItem cacheItem = null;
-            
+
+            var queryString = filterContext.RequestContext.HttpContext.Request.QueryString;
+            var parameters = new Dictionary<string, object>(filterContext.ActionParameters);
+
+            foreach(var key in queryString.AllKeys) {
+                parameters[key] = queryString[key];
+            }
+
             // compute the cache key
-            _cacheKey = ComputeCacheKey(filterContext, filterContext.ActionParameters);
+            _cacheKey = ComputeCacheKey(filterContext, parameters);
             _invariantCacheKey = ComputeCacheKey(filterContext, null);
             
             // don't retrieve cache content if refused
