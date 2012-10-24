@@ -42,7 +42,7 @@ namespace Contrib.Cache.Handlers {
                     Action<IContent> findAndEvict = p => {
                         foreach (var cacheItem in _cacheService.GetCacheItems()) {
                             var urlHelper = new UrlHelper(_requestContext);
-                            if (cacheItem.Url == VirtualPathUtility.ToAbsolute("~/" + urlHelper.ItemDisplayUrl(p))) {
+                            if (String.Equals(cacheItem.Url, VirtualPathUtility.ToAbsolute("~/" + urlHelper.ItemDisplayUrl(p)), StringComparison.OrdinalIgnoreCase)) {
                                 evict.Add(cacheItem);
                             }
                         }
