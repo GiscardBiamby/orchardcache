@@ -125,6 +125,20 @@ namespace Contrib.Cache.Filters
                 return;
             }
 
+            //// don't return any cached content, or cache any content, if the user has values in the "UserProfile" cookie: 
+            if (_workContext != null && _workContext.HttpContext != null && _workContext.HttpContext.Request!=null && _workContext.HttpContext.Request.Cookies != null) {
+                var cookie = _workContext.HttpContext.Request.Cookies["UserProfile"];
+                if (cookie != null 
+                    && (
+                        !string.IsNullOrWhiteSpace(cookie.Value)
+                        && !(cookie.HasKeys  && (cookie.Values != null && cookie.Values.AllKeys.Any(c => !string.IsNullOrWhiteSpace(cookie.Values[c]))))
+                        )
+                    ) {
+                    Logger.Debug("Request ignored on user with cookie UserProfile tracking");
+                    return;
+                }
+            }
+
             // caches the default cache duration to prevent a query to the settings
             _cacheDuration = _cacheManager.Get("CacheSettingsPart.Duration",
                 context => {
