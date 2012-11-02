@@ -131,7 +131,7 @@ namespace Contrib.Cache.Filters
                 if (cookie != null 
                     && (
                         !string.IsNullOrWhiteSpace(cookie.Value)
-                        && !(cookie.HasKeys  && (cookie.Values != null && cookie.Values.AllKeys.Any(c => !string.IsNullOrWhiteSpace(cookie.Values[c]))))
+                        || ( cookie.HasKeys  && cookie.Values != null && cookie.Values.AllKeys.Any(c => !string.IsNullOrWhiteSpace(cookie.Values[c])) )
                         )
                     ) {
                     Logger.Debug("Request ignored on user with cookie UserProfile tracking");
