@@ -32,10 +32,12 @@ namespace Contrib.Cache.Services {
         public IEnumerable<CacheItem> GetCacheItems() {
             var workContext = _workContextAccessor.GetContext();
 
-            foreach (DictionaryEntry cacheEntry in workContext.HttpContext.Cache) {
-                var cacheItem = cacheEntry.Value as CacheItem;
-                if (cacheItem != null) {
-                    yield return cacheItem;
+            if (workContext != null && workContext.HttpContext != null && workContext.HttpContext.Cache != null) {
+                foreach (DictionaryEntry cacheEntry in workContext.HttpContext.Cache) {
+                    var cacheItem = cacheEntry.Value as CacheItem;
+                    if (cacheItem != null) {
+                        yield return cacheItem;
+                    }
                 }
             }
         }
